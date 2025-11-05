@@ -16,8 +16,8 @@
 
 ## 👨‍💻 Kelompok Kami
 
-| Nama | NIM |
-|------|------|-------|
+| Nama | 
+|------|
 | **Revaldo Ilham** |
 | **Louis Mahardika** | 
 | **Rifky Veryandhika** | 
@@ -57,4 +57,5 @@ Proyek ini menggunakan **Flutter Framework** untuk membangun aplikasi mobile lin
 | **IDE** | Visual Studio Code / Android Studio |
 | **Sistem Operasi** | Windows / macOS / Linux |
 | **Manajemen Paket** | `pubspec.yaml` |
+
 
