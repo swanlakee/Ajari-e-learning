@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/shared_preferences_provider.dart';
+import 'package:uas/utils/firebase_auth_status.dart';
 import 'create_account_screen.dart';
 import 'home_screen.dart';
 import 'reset_password_screen.dart';
-import '../services/local_db.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,41 +19,57 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+
+    final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+    final navigator = Navigator.of(context);
+    final isLogin = context.read<SharedPreferenceProvider>().isLogin;
+
+    Future.microtask(() async {
+      if (isLogin) {
+        await firebaseAuthProvider.updateProfile();
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (c) => const HomeScreen()),
+        );
+      }
+    });
+  }
+
+  void _tapToLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    if (email.isNotEmpty && password.isNotEmpty) {
+      final sharedPreferenceProvider = context.read<SharedPreferenceProvider>();
+      final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      await firebaseAuthProvider.signInUser(email, password);
+      switch (firebaseAuthProvider.authStatus) {
+        case FirebaseAuthStatus.authenticated:
+          await sharedPreferenceProvider.login();
+          navigator.pushReplacement(
+            MaterialPageRoute(builder: (c) => const HomeScreen()),
+          );
+        case _:
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text(firebaseAuthProvider.message ?? "")),
+          );
+      }
+    } else {
+      const message = "Masukkan email dan password dengan benar";
+
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _handleLogin(BuildContext context) async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email & password')),
-      );
-      return;
-    }
-
-    final db = LocalDB();
-    final ok = await db.authenticate(email, password);
-    if (!mounted) return;
-    if (ok) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Login successful')));
-      // navigate to app home
-      // ignore: use_build_context_synchronously
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (c) => const HomeScreen()));
-    } else {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
-    }
   }
 
   @override
@@ -208,9 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   height: 44,
                   child: ElevatedButton(
-                    onPressed: () {
-                      _handleLogin(context);
-                    },
+                    onPressed: () => _tapToLogin(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1665D8),
                       elevation: 0,
