@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/local_db.dart';
+import 'package:provider/provider.dart';
+import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/utils/firebase_auth_status.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -9,29 +11,69 @@ class CreateAccountScreen extends StatefulWidget {
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  final _nameFocus = FocusNode();
+  final _fullnameFocus = FocusNode();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
-  final _nameController = TextEditingController();
+  final _fullnameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  @override
-  void dispose() {
-    _nameFocus.dispose();
-    _emailFocus.dispose();
-    _passwordFocus.dispose();
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
 
   OutlineInputBorder _border(Color color) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
     borderSide: BorderSide(color: color, width: 1.5),
   );
+
+  void _tapToRegister() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final fullname = _fullnameController.text.trim();
+    if (email.isNotEmpty && password.isNotEmpty) {
+      final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      await firebaseAuthProvider.createAccount(fullname, email, password);
+      if (firebaseAuthProvider.authStatus ==
+          FirebaseAuthStatus.accountCreated) {
+        navigator.pop();
+      } else {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              firebaseAuthProvider.message ?? "",
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      const message = "Masukkan nama, email dan password dengan benar";
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(message, style: Theme.of(context).textTheme.bodyLarge),
+        ),
+      );
+    }
+  }
+
+  void _goToLogin() {
+    Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _fullnameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _fullnameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,8 +137,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                 // Name field - orange border when focused to match design
                 TextField(
-                  controller: _nameController,
-                  focusNode: _nameFocus,
+                  controller: _fullnameController,
+                  focusNode: _fullnameFocus,
                   decoration: InputDecoration(
                     hintText: 'Full name',
                     hintStyle: const TextStyle(color: Color(0xFF6B7280)),
@@ -162,46 +204,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      final name = _nameController.text.trim();
-                      final email = _emailController.text.trim();
-                      final password = _passwordController.text;
-
-                      if (name.isEmpty || email.isEmpty || password.isEmpty) {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please fill all fields'),
-                          ),
-                        );
-                        return;
-                      }
-
-                      final db = LocalDB();
-                      final existing = await db.getUserByEmail(email);
-                      if (existing != null) {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Email already registered'),
-                          ),
-                        );
-                        return;
-                      }
-
-                      await db.insertUser({
-                        'name': name,
-                        'email': email,
-                        'password': password,
-                      });
-                      if (!mounted) return;
-                      // ignore: use_build_context_synchronously
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Account created')),
-                      );
-                      // ignore: use_build_context_synchronously
-                      Navigator.of(context).pop();
-                    },
+                    onPressed: () => _tapToRegister(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0D47A1),
                       shape: RoundedRectangleBorder(
@@ -244,9 +247,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop(); // go back to sign in
-                        },
+                        onPressed: () => _goToLogin(),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                         ),

@@ -1,12 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/shared_preferences_provider.dart';
 import 'my_profile_screen.dart';
 import 'elements_screen.dart';
 import 'color_skins_screen.dart';
 import 'login_screen_new.dart';
 import '../services/local_db.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  void _tapToSignOut() async {
+    final sharedPreferenceProvider = context.read<SharedPreferenceProvider>();
+    final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    await firebaseAuthProvider
+        .signOutUser()
+        .then((value) async {
+          await sharedPreferenceProvider.logout();
+          navigator.pushReplacement(
+            MaterialPageRoute(builder: (c) => const LoginScreen()),
+          );
+        })
+        .whenComplete(() {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text(firebaseAuthProvider.message ?? "")),
+          );
+        });
+  }
 
   Widget _menuButton(
     BuildContext context, {
@@ -135,7 +164,7 @@ class ProfileScreen extends StatelessWidget {
                               child: const Text('Batal'),
                             ),
                             TextButton(
-                              onPressed: () => Navigator.of(context).pop(true),
+                              onPressed: () => _tapToSignOut(),
                               child: const Text('Logout'),
                             ),
                           ],
@@ -163,6 +192,4 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-
-  // (Profile progress widgets removed — Profile screen now shows Edit Profile menu items)
 }
