@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/auth_provider.dart';
 import 'package:uas/provider/shared_preferences_provider.dart';
 import 'my_profile_screen.dart';
 import 'elements_screen.dart';
@@ -18,11 +18,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   void _tapToSignOut() async {
     final sharedPreferenceProvider = context.read<SharedPreferenceProvider>();
-    final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+    final authProvider = context.read<AuthProvider>();
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    await firebaseAuthProvider
+    await authProvider
         .signOutUser()
         .then((value) async {
           await sharedPreferenceProvider.logout();
@@ -32,7 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         })
         .whenComplete(() {
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text(firebaseAuthProvider.message ?? "")),
+            SnackBar(content: Text(authProvider.message ?? "")),
           );
         });
   }

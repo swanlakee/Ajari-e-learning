@@ -1,12 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uas/firebase_options.dart';
-import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/auth_provider.dart';
 import 'package:uas/provider/shared_preferences_provider.dart';
-import 'package:uas/services/firebase_auth_service.dart';
+import 'package:uas/services/api_auth_service.dart';
 import 'package:uas/services/shared_preferences_service.dart';
 import 'screens/login_screen_new.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -17,16 +14,16 @@ Future<void> main() async {
   await Hive.openBox('users');
 
   final pref = await SharedPreferences.getInstance();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  final firebaseAuth = FirebaseAuth.instance;
+  // Create API auth service instance
+  final apiAuthService = ApiAuthService();
+
   runApp(
     MultiProvider(
       providers: [
-        Provider(create: (context) => FirebaseAuthService(firebaseAuth)),
+        Provider(create: (context) => apiAuthService),
         ChangeNotifierProvider(
-          create: (context) =>
-              FirebaseAuthProvider(context.read<FirebaseAuthService>()),
+          create: (context) => AuthProvider(context.read<ApiAuthService>()),
         ),
         Provider(create: (context) => SharedPreferenceService(pref)),
         ChangeNotifierProvider(

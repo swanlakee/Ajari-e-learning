@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/auth_provider.dart';
 import 'package:uas/provider/shared_preferences_provider.dart';
-import 'package:uas/utils/firebase_auth_status.dart';
+import 'package:uas/utils/auth_status.dart';
 import 'create_account_screen.dart';
 import 'home_screen.dart';
 import 'reset_password_screen.dart';
@@ -22,13 +22,13 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
 
-    final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+    final authProvider = context.read<AuthProvider>();
     final navigator = Navigator.of(context);
     final isLogin = context.read<SharedPreferenceProvider>().isLogin;
 
     Future.microtask(() async {
       if (isLogin) {
-        await firebaseAuthProvider.updateProfile();
+        await authProvider.updateProfile();
         navigator.pushReplacement(
           MaterialPageRoute(builder: (c) => const HomeScreen()),
         );
@@ -41,20 +41,20 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
     if (email.isNotEmpty && password.isNotEmpty) {
       final sharedPreferenceProvider = context.read<SharedPreferenceProvider>();
-      final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+      final authProvider = context.read<AuthProvider>();
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-      await firebaseAuthProvider.signInUser(email, password);
-      switch (firebaseAuthProvider.authStatus) {
-        case FirebaseAuthStatus.authenticated:
+      await authProvider.signInUser(email, password);
+      switch (authProvider.authStatus) {
+        case AuthStatus.authenticated:
           await sharedPreferenceProvider.login();
           navigator.pushReplacement(
             MaterialPageRoute(builder: (c) => const HomeScreen()),
           );
         case _:
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text(firebaseAuthProvider.message ?? "")),
+            SnackBar(content: Text(authProvider.message ?? "")),
           );
       }
     } else {

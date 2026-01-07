@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uas/provider/firebase_auth_provider.dart';
-import 'package:uas/utils/firebase_auth_status.dart';
+import 'package:uas/provider/auth_provider.dart';
+import 'package:uas/utils/auth_status.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
@@ -29,19 +29,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     final password = _passwordController.text.trim();
     final fullname = _fullnameController.text.trim();
     if (email.isNotEmpty && password.isNotEmpty) {
-      final firebaseAuthProvider = context.read<FirebaseAuthProvider>();
+      final authProvider = context.read<AuthProvider>();
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-      await firebaseAuthProvider.createAccount(fullname, email, password);
-      if (firebaseAuthProvider.authStatus ==
-          FirebaseAuthStatus.accountCreated) {
+      await authProvider.createAccount(fullname, email, password);
+      if (authProvider.authStatus == AuthStatus.accountCreated) {
         navigator.pop();
       } else {
         scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text(
-              firebaseAuthProvider.message ?? "",
+              authProvider.message ?? "",
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             behavior: SnackBarBehavior.floating,

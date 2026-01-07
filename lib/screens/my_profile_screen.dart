@@ -1,27 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uas/provider/firebase_auth_provider.dart';
+import 'package:uas/provider/auth_provider.dart';
+import 'package:uas/services/course_service.dart';
+import 'package:uas/screens/top_up_screen.dart';
 import 'course_detail_screen.dart';
 
-class MyProfileScreen extends StatelessWidget {
+class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    String capitalizeEachWord(String text) {
-      if (text.isEmpty) return text;
+  State<MyProfileScreen> createState() => _MyProfileScreenState();
+}
 
-      return text
-          .split(' ')
-          .map((word) {
-            if (word.isEmpty) return word;
-            return word[0].toUpperCase() + word.substring(1).toLowerCase();
-          })
-          .join(' ');
+class _MyProfileScreenState extends State<MyProfileScreen> {
+  final CourseService _courseService = CourseService();
+  List<Course> _myCourses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMyCourses();
+  }
+
+  Future<void> _loadMyCourses() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      final courses = await _courseService.getMyCourses(authProvider.token!);
+      if (mounted) {
+        setState(() {
+          _myCourses = courses;
+          _isLoading = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
 
+  String capitalizeEachWord(String text) {
+    if (text.isEmpty) return text;
+
+    return text
+        .split(' ')
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        })
+        .join(' ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'My Profile',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -54,25 +95,18 @@ class MyProfileScreen extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          'https://i.pravatar.cc/120?img=12',
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
+                        child: Consumer<AuthProvider>(
+                          builder: (context, auth, _) {
+                            return Image.network(
+                              auth.profile?.photoUrl ??
+                                  'https://ui-avatars.com/api/?name=User',
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 16,
-                    bottom: -24,
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.white,
-                      mini: true,
-                      onPressed: () {
-                        // edit avatar
-                      },
-                      child: const Icon(Icons.edit, color: Colors.black),
                     ),
                   ),
                 ],
@@ -89,10 +123,11 @@ class MyProfileScreen extends StatelessWidget {
                       children: [
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Consumer<FirebaseAuthProvider>(
+                          child: Consumer<AuthProvider>(
                             builder: (context, authProvider, _) {
-                              final fullname =
-                                  capitalizeEachWord(authProvider.profile?.fullname ?? 'User');
+                              final fullname = capitalizeEachWord(
+                                authProvider.profile?.fullname ?? 'User',
+                              );
                               final email = authProvider.profile?.email ?? '';
 
                               return Column(
@@ -128,7 +163,7 @@ class MyProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore',
+                      'Learning never exhausts the mind. Keep growing!',
                       style: TextStyle(color: Colors.grey, height: 1.5),
                     ),
 
@@ -150,27 +185,39 @@ class MyProfileScreen extends StatelessWidget {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  'Your Credit',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  '\$568.34',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
+                            child: Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                final balance = auth.profile?.balance ?? 0.0;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Your Credit',
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Rp ${balance.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                           ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const TopUpScreen(),
+                                ),
+                              );
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: const Color(0xFFFF9800),
@@ -209,24 +256,37 @@ class MyProfileScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 220,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        children: [
-                          _progressCourseCard(
-                            context,
-                            'https://picsum.photos/seed/course1/300/180',
-                            'UI Design Master Class',
-                            0.4,
-                          ),
-                          const SizedBox(width: 12),
-                          _progressCourseCard(
-                            context,
-                            'https://picsum.photos/seed/course2/300/180',
-                            'Search Engine Optimization',
-                            0.7,
-                          ),
-                        ],
-                      ),
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _myCourses.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(
+                                    Icons.school_outlined,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'No courses yet',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _myCourses.length,
+                              itemBuilder: (context, index) {
+                                final course = _myCourses[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 12.0),
+                                  child: _progressCourseCard(context, course),
+                                );
+                              },
+                            ),
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -239,24 +299,27 @@ class MyProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _progressCourseCard(
-    BuildContext context,
-    String image,
-    String title,
-    double progress,
-  ) {
+  Widget _progressCourseCard(BuildContext context, Course course) {
+    // Random progress for demo, or real if backend supports
+    const double progress = 0.35;
+
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => CourseDetailScreen(
-              title: title,
-              category: 'ON PROGRESS',
-              rating: '4.5',
-              reviewCount: '120',
-              joinedCount: '459+',
-              duration: '4h 24min',
+              id: course.id,
+              title: course.title,
+              category: course.title.length > 20
+                  ? 'ON PROGRESS'
+                  : course.category,
+              rating: course.rating.toString(),
+              reviewCount: course.reviewCount.toString(),
+              joinedCount: course.joinedCount.toString(),
+              duration: course.duration ?? '0h',
+              lessonsCount: course.lessonsCount,
+              description: course.description ?? '',
             ),
           ),
         );
@@ -282,7 +345,8 @@ class MyProfileScreen extends StatelessWidget {
                     top: Radius.circular(8),
                   ),
                   child: Image.network(
-                    image,
+                    course.imageUrl ??
+                        'https://picsum.photos/seed/${course.id}/300/180',
                     width: double.infinity,
                     height: 110,
                     fit: BoxFit.cover,
@@ -319,7 +383,7 @@ class MyProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    course.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700),

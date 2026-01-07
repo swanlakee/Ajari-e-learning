@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'course_detail_screen.dart';
+import '../services/course_service.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -9,6 +11,59 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final CourseService _courseService = CourseService();
+  List<Course> _courses = [];
+  List<String> _categories = ['Design', 'Marketing', 'Business', 'Work'];
+  bool _isLoading = true;
+  String _selectedCategory = 'All';
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _loadData(isAutoRefresh: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadData({bool isAutoRefresh = false}) async {
+    if (!isAutoRefresh) {
+      setState(() => _isLoading = true);
+    }
+    try {
+      final results = await Future.wait([
+        _courseService.getCourses(
+          category: _selectedCategory == 'All' ? null : _selectedCategory,
+          search: _searchController.text.isEmpty
+              ? null
+              : _searchController.text,
+        ),
+        _courseService.getCategories(),
+      ]);
+
+      setState(() {
+        _courses = results[0] as List<Course>;
+        if ((results[1] as List<String>).isNotEmpty) {
+          _categories = ['All', ...results[1] as List<String>];
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error in CoursesScreen: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,16 +79,24 @@ class _CoursesScreenState extends State<CoursesScreen> {
             border: Border.all(color: const Color(0xFFEBEEF3)),
           ),
           child: Row(
-            children: const [
+            children: [
               Expanded(
                 child: TextField(
-                  decoration: InputDecoration(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) {
+                    _loadData();
+                  },
+                  decoration: const InputDecoration(
                     hintText: 'Search here',
                     border: InputBorder.none,
                   ),
                 ),
               ),
-              Icon(Icons.search, color: Colors.grey),
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.grey),
+                onPressed: () => _loadData(),
+              ),
             ],
           ),
         ),
@@ -47,91 +110,128 @@ class _CoursesScreenState extends State<CoursesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Text(
-              '46 Courses Found',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              '${_courses.length} Courses Found',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
           // Category chips
           SizedBox(
             height: 40,
-            child: ListView(
+            child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
-              children: [
-                _categoryChip('Design', Icons.draw),
-                _categoryChip('Marketing', Icons.trending_up),
-                _categoryChip('Business', Icons.business),
-                _categoryChip('Work', Icons.work),
-              ],
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final cat = _categories[index];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedCategory = cat);
+                    _loadData();
+                  },
+                  child: _categoryChip(
+                    cat,
+                    _getCategoryIcon(cat),
+                    selected: _selectedCategory == cat,
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _courseListItem(
-                  tag: 'BUSINESS',
-                  title: 'Income Management for Beginner',
-                  content: '26 Content',
-                  rating: '4.2',
-                  price: '5.2',
-                  imageUrl: 'https://picsum.photos/seed/income/120',
-                ),
-                _courseListItem(
-                  tag: 'BUSINESS',
-                  title: '[ADVANCED] Business Management Part 1',
-                  content: '26 Content',
-                  rating: '3.6',
-                  price: '2.7',
-                  imageUrl: 'https://picsum.photos/seed/business1/120',
-                ),
-                _courseListItem(
-                  tag: 'BUSINESS',
-                  title: '[ADVANCED] Business Management Part 2',
-                  content: '26 Content',
-                  rating: '3.6',
-                  price: '2.9',
-                  imageUrl: 'https://picsum.photos/seed/business2/120',
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _courses.isEmpty
+                ? const Center(child: Text('No courses found'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _courses.length,
+                    itemBuilder: (context, index) {
+                      final course = _courses[index];
+                      return _courseListItem(
+                        id: course.id,
+                        tag: course.category.toUpperCase(),
+                        title: course.title,
+                        content: '${course.lessonsCount} Content',
+                        lessonsCount: course.lessonsCount,
+                        rating: course.rating.toString(),
+                        price: course.price.toStringAsFixed(2),
+                        imageUrl:
+                            course.imageUrl ??
+                            'https://picsum.photos/seed/${course.id}/120',
+                        reviewCount: course.reviewCount.toString(),
+                        joinedCount: course.joinedCount.toString(),
+                        duration: course.duration ?? '0h',
+                        description: course.description ?? '',
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _categoryChip(String label, IconData icon) {
+  IconData _getCategoryIcon(String cat) {
+    final icons = {
+      'Design': Icons.draw,
+      'Marketing': Icons.trending_up,
+      'Business': Icons.business,
+      'Development': Icons.code,
+      'Work': Icons.work,
+      'All': Icons.grid_view,
+    };
+    return icons[cat] ?? Icons.category;
+  }
+
+  Widget _categoryChip(String label, IconData icon, {bool selected = false}) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: selected ? const Color(0xFF1665D8) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE6EDF7)),
+        border: Border.all(
+          color: selected ? const Color(0xFF1665D8) : const Color(0xFFE6EDF7),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF1665D8)),
+          Icon(
+            icon,
+            size: 16,
+            color: selected ? Colors.white : const Color(0xFF1665D8),
+          ),
           const SizedBox(width: 6),
-          Text(label),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.black87,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _courseListItem({
+    int? id,
     required String tag,
     required String title,
     required String content,
+    required int lessonsCount,
     required String rating,
     required String price,
     required String imageUrl,
+    required String reviewCount,
+    required String joinedCount,
+    required String duration,
+    String description = '',
   }) {
     return GestureDetector(
       onTap: () {
@@ -139,12 +239,15 @@ class _CoursesScreenState extends State<CoursesScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => CourseDetailScreen(
+              id: id,
               title: title,
               category: tag,
               rating: rating,
-              reviewCount: '128 reviews',
-              joinedCount: '456',
-              duration: '4h 24min',
+              reviewCount: reviewCount,
+              joinedCount: joinedCount,
+              duration: duration,
+              lessonsCount: lessonsCount,
+              description: description,
             ),
           ),
         );
